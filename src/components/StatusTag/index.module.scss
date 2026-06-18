@@ -1,0 +1,64 @@
+@use '@/styles/variables.scss' as *;
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-sm;
+  white-space: nowrap;
+}
+
+.sm {
+  padding: 4rpx 12rpx;
+}
+
+.md {
+  padding: 6rpx 16rpx;
+}
+
+.text {
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+}
+
+.pending {
+  background-color: $color-bg-tag-warning;
+  .text {
+    color: $color-warning;
+  }
+}
+
+.arrived {
+  background-color: $color-bg-tag-success;
+  .text {
+    color: $color-success;
+  }
+}
+
+.delivered {
+  background-color: $color-bg-tag-primary;
+  .text {
+    color: $color-primary;
+  }
+}
+
+.leave {
+  background-color: $color-bg-tag-gray;
+  .text {
+    color: $color-text-tertiary;
+  }
+}
+
+.approved {
+  background-color: $color-bg-tag-success;
+  .text {
+    color: $color-success;
+  }
+}
+
+.rejected {
+  background-color: $color-bg-tag-error;
+  .text {
+    color: $color-error;
+  }
+}
