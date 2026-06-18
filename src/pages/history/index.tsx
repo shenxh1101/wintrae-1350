@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, Image, Button } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import classnames from 'classnames';
@@ -6,7 +6,7 @@ import styles from './index.module.scss';
 import { useAppStore } from '@/store';
 import StatusTag from '@/components/StatusTag';
 import { formatDate } from '@/utils';
-import type { DailyStats, PickupRecord } from '@/types';
+import type { DailyStats, PickupRecord, LeaveRecord } from '@/types';
 
 const weekdayMap = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
@@ -14,13 +14,21 @@ const HistoryPage: React.FC = () => {
   const {
     currentUser,
     students,
-    pickupRecords,
     dailyStats,
-    monthlyStats
+    monthlyStats,
+    getMyPickupRecords,
+    getMyLeaveRecords,
+    recomputeMonthlyStats,
+    resetRole
   } = useAppStore();
 
   const [currentMonthIdx, setCurrentMonthIdx] = useState(0);
   const [selectedDate, setSelectedDate] = useState(formatDate());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    recomputeMonthlyStats();
+  }, []);
 
   const currentMonthly = monthlyStats[currentMonthIdx] || monthlyStats[0];
 
@@ -40,16 +48,21 @@ const HistoryPage: React.FC = () => {
     return dailyStats.find((d) => d.date === selectedDate) || null;
   }, [dailyStats, selectedDate]);
 
+  const myPickupRecords = useMemo(() => getMyPickupRecords(), [getMyPickupRecords]);
+  const myLeaveRecords = useMemo(() => getMyLeaveRecords(), [getMyLeaveRecords]);
+
   const selectedDateRecords = useMemo(() => {
-    let records = pickupRecords.filter((r) => r.date === selectedDate);
-    if (currentUser.role === 'parent') {
-      const myStudentIds = students
-        .filter((s) => s.parentName === currentUser.name)
-        .map((s) => s.id);
-      records = records.filter((r) => myStudentIds.includes(r.studentId));
-    }
-    return records;
-  }, [pickupRecords, selectedDate, students, currentUser]);
+    return myPickupRecords.filter((r) => r.date === selectedDate);
+  }, [myPickupRecords, selectedDate]);
+
+  const getLeaveReason = (studentId: string, date: string): string | null => {
+    const leave = myLeaveRecords.find((r) => {
+      if (r.status !== 'approved') return false;
+      if (r.studentId !== studentId) return false;
+      return date >= r.startDate && date <= r.endDate;
+    });
+    return leave ? leave.reason : null;
+  };
 
   const displayDailyList = useMemo(() => {
     const sorted = [...dailyStats].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -71,8 +84,28 @@ const HistoryPage: React.FC = () => {
   return (
     <View className={styles.page}>
       <View className={styles.header}>
-        <Text className={styles.title}>历史记录</Text>
-        <Text className={styles.subtitle}>查看考勤统计和接送记录</Text>
+        <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <View>
+            <Text className={styles.title}>历史记录</Text>
+            <Text className={styles.subtitle}>查看考勤统计和接送记录</Text>
+          </View>
+          <Image
+            className={styles.userAvatar}
+            src={currentUser.avatar || 'https://picsum.photos/id/64/200/200'}
+            mode="aspectFill"
+            onClick={() => {
+              Taro.showModal({
+                title: '切换身份',
+                content: '确定要退出当前账号并重新选择身份吗？',
+                success: (res) => {
+                  if (res.confirm) {
+                    resetRole();
+                  }
+                }
+              });
+            }}
+          />
+        </View>
       </View>
 
       <View className={styles.monthlySection}>
@@ -188,31 +221,79 @@ const HistoryPage: React.FC = () => {
               <View className={styles.recordList}>
                 {selectedDateRecords.map((record) => {
                   const student = getStudent(record.studentId);
+                  const isExpanded = expandedId === record.id;
+                  const leaveReason = getLeaveReason(record.studentId, selectedDate);
+                  const statusText = {
+                    pending: '待接送',
+                    arrived: '已到校',
+                    delivered: '已送达',
+                    leave: '请假'
+                  }[record.status];
                   return (
-                    <View key={record.id} className={styles.recordItem}>
-                      <View className={styles.recordLeft}>
-                        <Image
-                          className={styles.recordAvatar}
-                          src={student?.avatar || 'https://picsum.photos/id/1005/200/200'}
-                          mode="aspectFill"
-                        />
-                        <View className={styles.recordInfo}>
-                          <Text className={styles.recordName}>
-                            {record.studentName}
-                            {record.delayMinutes && record.delayMinutes > 0 && (
-                              <Text className={styles.abnormalTag}>延迟{record.delayMinutes}分</Text>
-                            )}
-                          </Text>
-                          <Text className={styles.recordDetail}>
-                            {record.arrivedTime ? `到校 ${record.arrivedTime}` : '未到校'}
-                            {record.deliveredTime ? ` · 送达 ${record.deliveredTime}` : ''}
-                            {record.pickupPerson ? ` · ${record.pickupPerson}接走` : ''}
+                    <View key={record.id}>
+                      <View
+                        className={styles.recordItem}
+                        onClick={() => setExpandedId(isExpanded ? null : record.id)}
+                      >
+                        <View className={styles.recordLeft}>
+                          <Image
+                            className={styles.recordAvatar}
+                            src={student?.avatar || 'https://picsum.photos/id/1005/200/200'}
+                            mode="aspectFill"
+                          />
+                          <View className={styles.recordInfo}>
+                            <Text className={styles.recordName}>
+                              {record.studentName}
+                              {record.delayMinutes && record.delayMinutes > 0 && (
+                                <Text className={styles.abnormalTag}>延迟{record.delayMinutes}分</Text>
+                              )}
+                            </Text>
+                            <Text className={styles.recordDetail}>
+                              {record.arrivedTime ? `到校 ${record.arrivedTime}` : '未到校'}
+                              {record.deliveredTime ? ` · 送达 ${record.deliveredTime}` : ''}
+                              {record.pickupPerson ? ` · ${record.pickupPerson}接走` : ''}
+                            </Text>
+                          </View>
+                        </View>
+                        <View className={styles.recordRight}>
+                          <StatusTag status={record.status} size="sm" />
+                          <Text style={{ marginLeft: '8rpx', fontSize: '24rpx', color: '#9ca3af' }}>
+                            {isExpanded ? '▲' : '▼'}
                           </Text>
                         </View>
                       </View>
-                      <View className={styles.recordRight}>
-                        <StatusTag status={record.status} size="sm" />
-                      </View>
+                      {isExpanded && (
+                        <View style={{ padding: '16rpx 32rpx 32rpx', backgroundColor: '#f9fafb', borderTop: '1rpx solid #e5e7eb' }}>
+                          <View style={{ display: 'flex', flexDirection: 'column', gap: '12rpx' }}>
+                            <View style={{ display: 'flex', alignItems: 'center' }}>
+                              <Text style={{ fontSize: '24rpx', color: '#6b7280', width: '140rpx' }}>签到时间</Text>
+                              <Text style={{ fontSize: '24rpx', color: '#1f2937' }}>{record.arrivedTime || '--'}</Text>
+                            </View>
+                            <View style={{ display: 'flex', alignItems: 'center' }}>
+                              <Text style={{ fontSize: '24rpx', color: '#6b7280', width: '140rpx' }}>签退时间</Text>
+                              <Text style={{ fontSize: '24rpx', color: '#1f2937' }}>{record.deliveredTime || '--'}</Text>
+                            </View>
+                            <View style={{ display: 'flex', alignItems: 'center' }}>
+                              <Text style={{ fontSize: '24rpx', color: '#6b7280', width: '140rpx' }}>状态</Text>
+                              <Text style={{ fontSize: '24rpx', color: '#1f2937' }}>{statusText}</Text>
+                            </View>
+                            {leaveReason && (
+                              <View style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                <Text style={{ fontSize: '24rpx', color: '#6b7280', width: '140rpx' }}>请假原因</Text>
+                                <Text style={{ fontSize: '24rpx', color: '#1f2937', flex: 1 }}>{leaveReason}</Text>
+                              </View>
+                            )}
+                            {record.delayMinutes && record.delayMinutes > 0 && (
+                              <View style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                <Text style={{ fontSize: '24rpx', color: '#6b7280', width: '140rpx' }}>延迟异常说明</Text>
+                                <Text style={{ fontSize: '24rpx', color: '#1f2937', flex: 1 }}>
+                                  延迟{record.delayMinutes}分钟{record.delayReason ? `：${record.delayReason}` : ''}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      )}
                     </View>
                   );
                 })}

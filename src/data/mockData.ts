@@ -1,16 +1,43 @@
-import type { Student, PickupRecord, LeaveRecord, ChangePickupRecord, NotifyRecord, DailyStats, MonthlyStats, UserRole } from '@/types';
+import type { Student, PickupRecord, LeaveRecord, ChangePickupRecord, NotifyRecord, DailyStats, MonthlyStats, UserRole, User } from '@/types';
 import dayjs from 'dayjs';
 
 const todayStr = () => dayjs().format('YYYY-MM-DD');
 const dateStr = (offsetDays: number = 0) => dayjs().add(offsetDays, 'day').format('YYYY-MM-DD');
 
-export const mockCurrentUser: { id: string; name: string; role: UserRole; phone: string; avatar?: string } = {
-  id: 'u001',
-  name: '李老师',
-  role: 'teacher',
-  phone: '13800138000',
-  avatar: 'https://picsum.photos/id/64/200/200'
-};
+export const mockTeachers: User[] = [
+  {
+    id: 'u001',
+    name: '李老师',
+    role: 'teacher',
+    phone: '13800138000',
+    avatar: 'https://picsum.photos/id/64/200/200'
+  },
+  {
+    id: 'u002',
+    name: '王老师',
+    role: 'teacher',
+    phone: '13800138099',
+    avatar: 'https://picsum.photos/id/91/200/200'
+  }
+];
+
+export const mockParents: User[] = [
+  { id: 'p001', name: '张伟', role: 'parent', phone: '13800138001', avatar: 'https://picsum.photos/id/177/200/200', studentIds: ['s001'] },
+  { id: 'p002', name: '王芳', role: 'parent', phone: '13800138002', avatar: 'https://picsum.photos/id/64/200/200', studentIds: ['s001'] },
+  { id: 'p003', name: '李明', role: 'parent', phone: '13800138003', avatar: 'https://picsum.photos/id/91/200/200', studentIds: ['s002'] },
+  { id: 'p005', name: '王强', role: 'parent', phone: '13800138005', studentIds: ['s003'] },
+  { id: 'p006', name: '赵刚', role: 'parent', phone: '13800138006', studentIds: ['s004'] },
+  { id: 'p008', name: '陈建国', role: 'parent', phone: '13800138008', studentIds: ['s005'] },
+  { id: 'p009', name: '孙伟', role: 'parent', phone: '13800138009', studentIds: ['s006'] },
+  { id: 'p011', name: '周涛', role: 'parent', phone: '13800138011', studentIds: ['s007'] },
+  { id: 'p012', name: '吴磊', role: 'parent', phone: '13800138012', studentIds: ['s008'] },
+  { id: 'p014', name: '郑华', role: 'parent', phone: '13800138014', studentIds: ['s009'] },
+  { id: 'p015', name: '刘军', role: 'parent', phone: '13800138015', studentIds: ['s010'] }
+];
+
+export const mockAllUsers: User[] = [...mockTeachers, ...mockParents];
+
+export const mockCurrentUser: User = mockTeachers[0];
 
 export const mockStudents: Student[] = [
   {

@@ -19,11 +19,14 @@ const leaveTypes: { key: LeaveType; label: string }[] = [
 const LeavePage: React.FC = () => {
   const {
     currentUser,
-    students,
-    leaveRecords,
-    changePickupRecords,
     addLeaveRecord,
-    addChangePickupRecord
+    addChangePickupRecord,
+    reviewLeaveRecord,
+    reviewChangePickupRecord,
+    getMyLeaveRecords,
+    getMyChangePickupRecords,
+    resetRole,
+    getMyStudents
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('leave');
@@ -43,20 +46,11 @@ const LeavePage: React.FC = () => {
   const [newPhone, setNewPhone] = useState('');
   const [changeReason, setChangeReason] = useState('');
 
-  const myStudents = useMemo(() => {
-    if (currentUser.role === 'teacher') return students;
-    return students.filter((s) => s.parentName === currentUser.name);
-  }, [students, currentUser]);
+  const myStudents = useMemo(() => getMyStudents(), [getMyStudents, currentUser]);
 
-  const displayLeaveRecords = useMemo(() => {
-    if (currentUser.role === 'teacher') return leaveRecords;
-    return leaveRecords.filter((r) => myStudents.some((s) => s.id === r.studentId));
-  }, [leaveRecords, myStudents, currentUser]);
+  const displayLeaveRecords = useMemo(() => getMyLeaveRecords(), [getMyLeaveRecords, currentUser]);
 
-  const displayChangeRecords = useMemo(() => {
-    if (currentUser.role === 'teacher') return changePickupRecords;
-    return changePickupRecords.filter((r) => myStudents.some((s) => s.id === r.studentId));
-  }, [changePickupRecords, myStudents, currentUser]);
+  const displayChangeRecords = useMemo(() => getMyChangePickupRecords(), [getMyChangePickupRecords, currentUser]);
 
   const resetForm = () => {
     setLeaveType('sick');
@@ -138,8 +132,8 @@ const LeavePage: React.FC = () => {
       content: `确定要${approved ? '通过' : '拒绝'}${record.studentName}的请假申请吗？`,
       success: (res) => {
         if (res.confirm) {
+          reviewLeaveRecord(record.id, approved ? 'approved' : 'rejected', currentUser.name);
           Taro.showToast({ title: approved ? '已通过' : '已拒绝', icon: 'success' });
-          console.log('[Leave] Review leave:', record.id, approved ? 'approved' : 'rejected');
         }
       }
     });
@@ -151,8 +145,20 @@ const LeavePage: React.FC = () => {
       content: `确定要${approved ? '通过' : '拒绝'}${record.studentName}的改接申请吗？`,
       success: (res) => {
         if (res.confirm) {
+          reviewChangePickupRecord(record.id, approved ? 'approved' : 'rejected', currentUser.name);
           Taro.showToast({ title: approved ? '已通过' : '已拒绝', icon: 'success' });
-          console.log('[Leave] Review change:', record.id, approved ? 'approved' : 'rejected');
+        }
+      }
+    });
+  };
+
+  const handleAvatarClick = () => {
+    Taro.showModal({
+      title: '切换身份',
+      content: '确定要退出当前账号并切换身份吗？',
+      success: (res) => {
+        if (res.confirm) {
+          resetRole();
         }
       }
     });
@@ -161,6 +167,17 @@ const LeavePage: React.FC = () => {
   return (
     <View className={styles.page}>
       <View className={styles.header}>
+        <View className={styles.headerTop}>
+          <View></View>
+          <View className={styles.userInfo} onClick={handleAvatarClick}>
+            <Text className={styles.userName}>{currentUser.name}</Text>
+            <Image
+              className={styles.userAvatar}
+              src={currentUser.avatar || 'https://picsum.photos/id/64/200/200'}
+              mode="aspectFill"
+            />
+          </View>
+        </View>
         <Text className={styles.title}>请假调班</Text>
         <Text className={styles.subtitle}>管理请假和临时改接申请</Text>
       </View>

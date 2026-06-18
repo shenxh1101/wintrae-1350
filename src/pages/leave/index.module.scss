@@ -7,8 +7,32 @@
 
 .header {
   background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
-  padding: $spacing-xl $page-padding $spacing-xxl;
+  padding: $spacing-lg $page-padding $spacing-xl;
   color: $color-text-white;
+}
+
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-md;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+}
+
+.userName {
+  font-size: $font-size-md;
+  margin-right: $spacing-sm;
+}
+
+.userAvatar {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: $radius-round;
+  border: 2rpx solid rgba(255, 255, 255, 0.5);
 }
 
 .title {

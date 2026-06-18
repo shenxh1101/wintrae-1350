@@ -28,8 +28,11 @@ const NotifyPage: React.FC = () => {
   const {
     currentUser,
     students,
-    notifyRecords,
-    addNotifyRecord
+    teachers,
+    parents,
+    addNotifyRecord,
+    getMyNotifyRecords,
+    resetRole
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('all');
@@ -40,20 +43,16 @@ const NotifyPage: React.FC = () => {
   const [sendContent, setSendContent] = useState('');
   const [isGroup, setIsGroup] = useState(true);
   const [selectedReceivers, setSelectedReceivers] = useState<string[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
 
   const filteredRecords = useMemo(() => {
-    let records = notifyRecords;
-    if (currentUser.role === 'parent') {
-      records = records.filter(
-        (r) => r.isGroup || r.receiverId === currentUser.id || r.senderId === currentUser.id
-      );
-    }
+    let records = getMyNotifyRecords();
     if (activeTab !== 'all') {
       records = records.filter((r) => r.type === activeTab);
     }
     return records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [notifyRecords, activeTab, currentUser]);
+  }, [activeTab, getMyNotifyRecords]);
 
   const resetSendForm = () => {
     setSendType('homework');
@@ -61,6 +60,7 @@ const NotifyPage: React.FC = () => {
     setSendContent('');
     setIsGroup(true);
     setSelectedReceivers([]);
+    setSelectedTeacherId('');
     setPhotos([]);
   };
 
@@ -68,15 +68,18 @@ const NotifyPage: React.FC = () => {
     if (currentUser.role !== 'teacher') {
       setSendType('message');
       setIsGroup(false);
+    } else {
+      setSendType('homework');
+      setIsGroup(true);
     }
     setShowSendModal(true);
   };
 
-  const handleToggleReceiver = (studentId: string) => {
+  const handleToggleReceiver = (parentId: string) => {
     setSelectedReceivers((prev) =>
-      prev.includes(studentId)
-        ? prev.filter((id) => id !== studentId)
-        : [...prev, studentId]
+      prev.includes(parentId)
+        ? prev.filter((id) => id !== parentId)
+        : [...prev, parentId]
     );
   };
 
@@ -106,29 +109,58 @@ const NotifyPage: React.FC = () => {
       Taro.showToast({ title: '请填写标题和内容', icon: 'none' });
       return;
     }
-    if (!isGroup && sendType === 'message' && selectedReceivers.length === 0) {
-      Taro.showToast({ title: '请选择接收人', icon: 'none' });
+    if (currentUser.role === 'parent' && !selectedTeacherId) {
+      Taro.showToast({ title: '请选择接收老师', icon: 'none' });
+      return;
+    }
+    if (currentUser.role === 'teacher' && !isGroup && selectedReceivers.length === 0) {
+      Taro.showToast({ title: '请选择接收家长', icon: 'none' });
       return;
     }
 
-    const notifyData: Omit<NotifyRecord, 'id' | 'createdAt'> = {
+    const baseData = {
       type: sendType,
       title: sendTitle.trim(),
       content: sendContent.trim(),
       senderId: currentUser.id,
       senderName: currentUser.name,
       senderRole: currentUser.role,
-      isGroup,
-      photos: photos.length > 0 ? photos : undefined,
-      readCount: 0,
-      totalCount: isGroup ? students.length : selectedReceivers.length
+      photos: photos.length > 0 ? photos : undefined
     };
 
-    addNotifyRecord(notifyData);
+    if (currentUser.role === 'parent') {
+      const teacher = teachers.find((t) => t.id === selectedTeacherId);
+      const notifyData: Omit<NotifyRecord, 'id' | 'createdAt'> = {
+        ...baseData,
+        isGroup: false,
+        receiverId: selectedTeacherId,
+        receiverName: teacher?.name
+      };
+      addNotifyRecord(notifyData);
+    } else if (isGroup) {
+      const notifyData: Omit<NotifyRecord, 'id' | 'createdAt'> = {
+        ...baseData,
+        isGroup: true,
+        readCount: 0,
+        totalCount: parents.length
+      };
+      addNotifyRecord(notifyData);
+    } else {
+      selectedReceivers.forEach((parentId) => {
+        const parent = parents.find((p) => p.id === parentId);
+        const notifyData: Omit<NotifyRecord, 'id' | 'createdAt'> = {
+          ...baseData,
+          isGroup: false,
+          receiverId: parentId,
+          receiverName: parent?.name
+        };
+        addNotifyRecord(notifyData);
+      });
+    }
+
     setShowSendModal(false);
     resetSendForm();
     Taro.showToast({ title: '发送成功', icon: 'success' });
-    console.log('[Notify] Send notification:', notifyData);
   };
 
   const handleReply = (record: NotifyRecord) => {
@@ -137,9 +169,17 @@ const NotifyPage: React.FC = () => {
 
   return (
     <View className={styles.page}>
-      <View className={styles.header}>
-        <Text className={styles.title}>通知反馈</Text>
-        <Text className={styles.subtitle}>作业提醒、公告通知、留言互动</Text>
+      <View className={styles.header} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View>
+          <Text className={styles.title}>通知反馈</Text>
+          <Text className={styles.subtitle}>作业提醒、公告通知、留言互动</Text>
+        </View>
+        <Image
+          src={currentUser.avatar || 'https://picsum.photos/id/64/200/200'}
+          mode="aspectFill"
+          style={{ width: 72, height: 72, borderRadius: 999 }}
+          onClick={() => resetRole()}
+        />
       </View>
 
       <View className={styles.tabs}>
@@ -267,22 +307,50 @@ const NotifyPage: React.FC = () => {
 
                 {!isGroup && (
                   <View className={styles.receiverList}>
-                    {students.map((s) => (
+                    {parents.map((p) => (
                       <View
-                        key={s.id}
-                        className={classnames(styles.receiverItem, selectedReceivers.includes(s.id) && styles.active)}
-                        onClick={() => handleToggleReceiver(s.id)}
+                        key={p.id}
+                        className={classnames(styles.receiverItem, selectedReceivers.includes(p.id) && styles.active)}
+                        onClick={() => handleToggleReceiver(p.id)}
                       >
+                        <View
+                          className={classnames(styles.switchBox, selectedReceivers.includes(p.id) && styles.checked)}
+                          style={{ width: 32, height: 32 }}
+                        >
+                          {selectedReceivers.includes(p.id) ? '✓' : ''}
+                        </View>
                         <Image
                           className={styles.receiverAvatar}
-                          src={s.avatar || 'https://picsum.photos/id/1005/200/200'}
+                          src={p.avatar || 'https://picsum.photos/id/1005/200/200'}
                           mode="aspectFill"
                         />
-                        <Text className={styles.receiverName}>{s.parentName}</Text>
+                        <Text className={styles.receiverName}>{p.name}</Text>
                       </View>
                     ))}
                   </View>
                 )}
+              </View>
+            )}
+
+            {currentUser.role === 'parent' && (
+              <View className={styles.formItem}>
+                <Text className={styles.formLabel}>选择老师</Text>
+                <View className={styles.receiverList}>
+                  {teachers.map((t) => (
+                    <View
+                      key={t.id}
+                      className={classnames(styles.receiverItem, selectedTeacherId === t.id && styles.active)}
+                      onClick={() => setSelectedTeacherId(t.id)}
+                    >
+                      <Image
+                        className={styles.receiverAvatar}
+                        src={t.avatar || 'https://picsum.photos/id/64/200/200'}
+                        mode="aspectFill"
+                      />
+                      <Text className={styles.receiverName}>{t.name}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             )}
 

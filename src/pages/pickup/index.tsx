@@ -22,11 +22,17 @@ const filterList: { key: FilterType; label: string }[] = [
 const PickupPage: React.FC = () => {
   const {
     currentUser,
-    students,
-    pickupRecords,
     updatePickupStatus,
-    confirmPickup
+    confirmPickup,
+    getMyPickupRecords,
+    getMyStudents,
+    resetRole
   } = useAppStore();
+  const pickupRecords = useAppStore((state) => state.pickupRecords);
+  const students = useAppStore((state) => state.students);
+
+  const myPickupRecords = useMemo(() => getMyPickupRecords(), [getMyPickupRecords, pickupRecords, currentUser]);
+  const myStudents = useMemo(() => getMyStudents(), [getMyStudents, students, currentUser]);
 
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -44,8 +50,8 @@ const PickupPage: React.FC = () => {
   const today = formatDate();
 
   const todayRecords = useMemo(() => {
-    return pickupRecords.filter((r) => r.date === today);
-  }, [pickupRecords, today]);
+    return myPickupRecords.filter((r) => r.date === today);
+  }, [myPickupRecords, today]);
 
   const stats = useMemo(() => {
     return {
@@ -62,7 +68,7 @@ const PickupPage: React.FC = () => {
     return todayRecords.filter((r) => r.status === activeFilter);
   }, [todayRecords, activeFilter]);
 
-  const getStudentById = (id: string) => students.find((s) => s.id === id);
+  const getStudentById = (id: string) => myStudents.find((s) => s.id === id);
 
   const unconfirmedRecords = useMemo(() => {
     if (currentUser.role !== 'parent') return [];
@@ -167,6 +173,17 @@ const PickupPage: React.FC = () => {
     console.log('[Pickup] Parent confirmed:', record.id);
   };
 
+  const handleAvatarClick = () => {
+    Taro.showActionSheet({
+      itemList: ['切换身份', '取消'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          resetRole();
+        }
+      }
+    });
+  };
+
   const handleRefresh = () => {
     console.log('[Pickup] Refreshing data...');
     setTimeout(() => {
@@ -186,7 +203,7 @@ const PickupPage: React.FC = () => {
       <View className={styles.header}>
         <View className={styles.headerTop}>
           <Text className={styles.dateText}>{formatDate(new Date(), 'MM月DD日 dddd')}</Text>
-          <View className={styles.userInfo}>
+          <View className={styles.userInfo} onClick={handleAvatarClick}>
             <Text className={styles.userName}>{currentUser.name}</Text>
             <Image
               className={styles.userAvatar}

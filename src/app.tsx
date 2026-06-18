@@ -1,19 +1,18 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useDidShow, useDidHide } from '@tarojs/taro';
-// 全局样式
+import RoleSelector from '@/components/RoleSelector';
 import './app.scss';
 
 function App(props) {
-  // 可以使用所有的 React Hooks
-  useEffect(() => {});
-
-  // 对应 onShow
   useDidShow(() => {});
-
-  // 对应 onHide
   useDidHide(() => {});
 
-  return props.children;
+  return (
+    <>
+      {props.children}
+      <RoleSelector />
+    </>
+  );
 }
 
 export default App;

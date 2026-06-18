@@ -11,12 +11,16 @@ import type { Student, AuthorizedPerson, PickupRecord } from '@/types';
 const StudentsPage: React.FC = () => {
   const {
     currentUser,
-    students,
     pickupRecords,
     updateStudent,
     addAuthorizedPerson,
-    removeAuthorizedPerson
+    removeAuthorizedPerson,
+    getMyStudents,
+    resetRole
   } = useAppStore();
+
+  const myStudents = getMyStudents();
+  const [showRoleModal, setShowRoleModal] = useState(false);
 
   const [searchText, setSearchText] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -35,15 +39,15 @@ const StudentsPage: React.FC = () => {
   const today = formatDate();
 
   const filteredStudents = useMemo(() => {
-    if (!searchText.trim()) return students;
+    if (!searchText.trim()) return myStudents;
     const keyword = searchText.trim().toLowerCase();
-    return students.filter(
+    return myStudents.filter(
       (s) =>
         s.name.toLowerCase().includes(keyword) ||
         s.className.toLowerCase().includes(keyword) ||
         s.parentName.toLowerCase().includes(keyword)
     );
-  }, [students, searchText]);
+  }, [myStudents, searchText]);
 
   const getStudentPickupToday = (studentId: string): PickupRecord | undefined => {
     return pickupRecords.find((r) => r.studentId === studentId && r.date === today);
@@ -58,6 +62,10 @@ const StudentsPage: React.FC = () => {
 
   const handleToggleEdit = () => {
     if (!selectedStudent) return;
+    if (!canEditStudent(selectedStudent.id)) {
+      Taro.showToast({ title: '无权限编辑', icon: 'none' });
+      return;
+    }
     if (editMode) {
       updateStudent(selectedStudent.id, editData);
       Taro.showToast({ title: '修改已保存', icon: 'success' });
@@ -104,13 +112,39 @@ const StudentsPage: React.FC = () => {
     });
   };
 
+  const canEditStudent = (studentId: string) => {
+    if (currentUser.role === 'teacher') return false;
+    const myIds = currentUser.studentIds || [];
+    return myIds.includes(studentId);
+  };
+
+  const handleAvatarClick = () => {
+    setShowRoleModal(true);
+  };
+
+  const handleResetRole = () => {
+    resetRole();
+    setShowRoleModal(false);
+    Taro.showToast({ title: '已退出登录', icon: 'success' });
+  };
+
   return (
     <View className={styles.page}>
       <View className={styles.header}>
-        <Text className={styles.title}>学生档案</Text>
-        <Text className={styles.subtitle}>
-          {currentUser.role === 'teacher' ? `共 ${students.length} 名学生` : '查看和维护孩子信息'}
-        </Text>
+        <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View>
+            <Text className={styles.title}>学生档案</Text>
+            <Text className={styles.subtitle}>
+              {currentUser.role === 'teacher' ? `共 ${myStudents.length} 名学生` : '查看和维护孩子信息'}
+            </Text>
+          </View>
+          <Image
+            src={currentUser.avatar || 'https://picsum.photos/id/1005/200/200'}
+            mode="aspectFill"
+            style={{ width: '72rpx', height: '72rpx', borderRadius: '999rpx', backgroundColor: '#f3f4f6' }}
+            onClick={handleAvatarClick}
+          />
+        </View>
       </View>
 
       <View className={styles.searchSection}>
@@ -208,17 +242,59 @@ const StudentsPage: React.FC = () => {
                   ) : selectedStudent.name}
                 </Text>
                 <Text className={styles.studentInfo}>
-                  {selectedStudent.gender === 'boy' ? '👦' : '👧'} {selectedStudent.age}岁
+                  {editMode ? (
+                    <View style={{ display: 'flex', alignItems: 'center', gap: '16rpx' }}>
+                      <Input
+                        value={editData.gender ?? selectedStudent.gender}
+                        onInput={(e) => setEditData({ ...editData, gender: e.detail.value as 'boy' | 'girl' })}
+                        placeholder="boy/girl"
+                        style={{ fontSize: '28rpx', width: '120rpx' }}
+                      />
+                      <Input
+                        type="number"
+                        value={String(editData.age ?? selectedStudent.age)}
+                        onInput={(e) => setEditData({ ...editData, age: Number(e.detail.value) })}
+                        placeholder="年龄"
+                        style={{ fontSize: '28rpx', width: '100rpx' }}
+                      />
+                      <Text>岁</Text>
+                    </View>
+                  ) : (
+                    <>{selectedStudent.gender === 'boy' ? '👦' : '👧'} {selectedStudent.age}岁</>
+                  )}
                 </Text>
                 <Text className={styles.studentInfo}>
-                  {selectedStudent.school} · {selectedStudent.grade} · {selectedStudent.className}
+                  {editMode ? (
+                    <View style={{ display: 'flex', flexDirection: 'column', gap: '8rpx' }}>
+                      <Input
+                        value={editData.school ?? selectedStudent.school}
+                        onInput={(e) => setEditData({ ...editData, school: e.detail.value })}
+                        placeholder="学校"
+                        style={{ fontSize: '26rpx' }}
+                      />
+                      <Input
+                        value={editData.grade ?? selectedStudent.grade}
+                        onInput={(e) => setEditData({ ...editData, grade: e.detail.value })}
+                        placeholder="年级"
+                        style={{ fontSize: '26rpx' }}
+                      />
+                      <Input
+                        value={editData.className ?? selectedStudent.className}
+                        onInput={(e) => setEditData({ ...editData, className: e.detail.value })}
+                        placeholder="班级"
+                        style={{ fontSize: '26rpx' }}
+                      />
+                    </View>
+                  ) : (
+                    <>{selectedStudent.school} · {selectedStudent.grade} · {selectedStudent.className}</>
+                  )}
                 </Text>
               </View>
             </View>
 
             <View className={styles.sectionTitle}>
               <Text>基本信息</Text>
-              {currentUser.role === 'parent' && (
+              {canEditStudent(selectedStudent.id) && (
                 <Button className={styles.addBtn} onClick={handleToggleEdit}>
                   {editMode ? '保存' : '编辑'}
                 </Button>
@@ -228,44 +304,75 @@ const StudentsPage: React.FC = () => {
             <View className={styles.infoGrid}>
               <View className={styles.infoItem}>
                 <Text className={styles.infoLabel}>家长姓名</Text>
-                <Text className={styles.infoValue}>{selectedStudent.parentName}</Text>
+                {editMode ? (
+                  <Input
+                    value={editData.parentName ?? selectedStudent.parentName}
+                    onInput={(e) => setEditData({ ...editData, parentName: e.detail.value })}
+                    style={{ fontSize: '28rpx' }}
+                  />
+                ) : (
+                  <Text className={styles.infoValue}>{selectedStudent.parentName}</Text>
+                )}
               </View>
               <View className={styles.infoItem}>
                 <Text className={styles.infoLabel}>联系电话</Text>
-                <Text className={styles.infoValue}>{selectedStudent.parentPhone}</Text>
+                {editMode ? (
+                  <Input
+                    type="number"
+                    value={editData.parentPhone ?? selectedStudent.parentPhone}
+                    onInput={(e) => setEditData({ ...editData, parentPhone: e.detail.value })}
+                    style={{ fontSize: '28rpx' }}
+                  />
+                ) : (
+                  <Text className={styles.infoValue}>{selectedStudent.parentPhone}</Text>
+                )}
               </View>
               <View className={styles.infoItem}>
                 <Text className={styles.infoLabel}>过敏史</Text>
-                <Text className={styles.infoValue}>{selectedStudent.allergies || '无'}</Text>
+                {editMode ? (
+                  <Input
+                    value={editData.allergies ?? selectedStudent.allergies ?? ''}
+                    onInput={(e) => setEditData({ ...editData, allergies: e.detail.value })}
+                    placeholder="无"
+                    style={{ fontSize: '28rpx' }}
+                  />
+                ) : (
+                  <Text className={styles.infoValue}>{selectedStudent.allergies || '无'}</Text>
+                )}
               </View>
               <View className={styles.infoItem}>
                 <Text className={styles.infoLabel}>学校</Text>
-                <Text className={styles.infoValue}>{selectedStudent.school}</Text>
+                {editMode ? (
+                  <Input
+                    value={editData.school ?? selectedStudent.school}
+                    onInput={(e) => setEditData({ ...editData, school: e.detail.value })}
+                    style={{ fontSize: '28rpx' }}
+                  />
+                ) : (
+                  <Text className={styles.infoValue}>{selectedStudent.school}</Text>
+                )}
               </View>
             </View>
 
-            {selectedStudent.remarks && (
-              <>
-                <View className={styles.sectionTitle}>
-                  <Text>备注信息</Text>
-                </View>
-                <View className={styles.remarksBox}>
-                  {editMode ? (
-                    <Textarea
-                      value={editData.remarks ?? selectedStudent.remarks}
-                      onInput={(e) => setEditData({ ...editData, remarks: e.detail.value })}
-                      style={{ width: '100%', minHeight: '120rpx', fontSize: '28rpx', backgroundColor: 'transparent' }}
-                    />
-                  ) : (
-                    <Text className={styles.remarksText}>{selectedStudent.remarks}</Text>
-                  )}
-                </View>
-              </>
-            )}
+            <View className={styles.sectionTitle}>
+              <Text>备注信息</Text>
+            </View>
+            <View className={styles.remarksBox}>
+              {editMode ? (
+                <Textarea
+                  value={editData.remarks ?? selectedStudent.remarks ?? ''}
+                  onInput={(e) => setEditData({ ...editData, remarks: e.detail.value })}
+                  placeholder="添加备注..."
+                  style={{ width: '100%', minHeight: '120rpx', fontSize: '28rpx', backgroundColor: 'transparent' }}
+                />
+              ) : (
+                <Text className={styles.remarksText}>{selectedStudent.remarks || '暂无备注'}</Text>
+              )}
+            </View>
 
             <View className={styles.sectionTitle}>
               <Text>授权接送人（{selectedStudent.authorizedPersons.length}人）</Text>
-              {currentUser.role === 'parent' && (
+              {canEditStudent(selectedStudent.id) && (
                 <Button className={styles.addBtn} onClick={handleAddPerson}>
                   + 添加
                 </Button>
@@ -290,7 +397,7 @@ const StudentsPage: React.FC = () => {
                       {person.isTemp && person.tempDate && ` · ${person.tempDate}`}
                     </Text>
                   </View>
-                  {currentUser.role === 'parent' && (
+                  {canEditStudent(selectedStudent.id) && (
                     <Button
                       className={styles.deleteBtn}
                       onClick={() => handleRemovePerson(person.id, person.name)}
@@ -380,6 +487,53 @@ const StudentsPage: React.FC = () => {
               >
                 确认添加
               </Button>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {showRoleModal && (
+        <View className={styles.modalMask} onClick={() => setShowRoleModal(false)}>
+          <View className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <View className={styles.modalHeader}>
+              <Text className={styles.modalTitle}>切换身份</Text>
+              <Button
+                className={styles.closeBtn}
+                onClick={() => setShowRoleModal(false)}
+              >
+                ✕
+              </Button>
+            </View>
+
+            <View style={{ padding: '32rpx' }}>
+              <View style={{ display: 'flex', alignItems: 'center', marginBottom: '32rpx' }}>
+                <Image
+                  src={currentUser.avatar || 'https://picsum.photos/id/1005/200/200'}
+                  mode="aspectFill"
+                  style={{ width: '96rpx', height: '96rpx', borderRadius: '999rpx', backgroundColor: '#f3f4f6' }}
+                />
+                <View style={{ marginLeft: '24rpx' }}>
+                  <Text style={{ fontSize: '32rpx', fontWeight: 600, color: '#1f2937' }}>{currentUser.name}</Text>
+                  <Text style={{ fontSize: '26rpx', color: '#6b7280', display: 'block', marginTop: '8rpx' }}>
+                    {currentUser.role === 'teacher' ? '👩‍🏫 老师' : '👨‍👩‍👧 家长'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className={styles.modalActions}>
+                <Button
+                  className={classnames(styles.modalBtn, styles.cancel)}
+                  onClick={() => setShowRoleModal(false)}
+                >
+                  取消
+                </Button>
+                <Button
+                  className={classnames(styles.modalBtn, styles.confirm)}
+                  onClick={handleResetRole}
+                >
+                  退出并切换
+                </Button>
+              </View>
             </View>
           </View>
         </View>

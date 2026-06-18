@@ -8,6 +8,15 @@ export type LeaveStatus = 'pending' | 'approved' | 'rejected';
 
 export type NotifyType = 'homework' | 'notice' | 'message' | 'photo';
 
+export interface User {
+  id: string;
+  name: string;
+  role: UserRole;
+  phone: string;
+  avatar?: string;
+  studentIds?: string[];
+}
+
 export interface AuthorizedPerson {
   id: string;
   name: string;

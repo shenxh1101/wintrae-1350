@@ -1,0 +1,153 @@
+@use '@/styles/variables.scss' as *;
+
+.mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  width: 90%;
+  max-width: 640rpx;
+  max-height: 85vh;
+  background: $color-bg-card;
+  border-radius: $radius-xl;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: $shadow-popup;
+}
+
+.header {
+  padding: $spacing-xl $spacing-lg $spacing-md;
+  text-align: center;
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+}
+
+.title {
+  display: block;
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: $color-text-white;
+  margin-bottom: $spacing-xs;
+}
+
+.subtitle {
+  display: block;
+  font-size: $font-size-sm;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.roleTabs {
+  display: flex;
+  padding: $spacing-md $spacing-lg 0;
+  gap: $spacing-sm;
+}
+
+.roleTab {
+  flex: 1;
+  padding: $spacing-sm 0;
+  text-align: center;
+  border-radius: $radius-md;
+  background: $color-bg-hover;
+  border: 2rpx solid transparent;
+  transition: $transition-base;
+}
+
+.roleTabActive {
+  background: $color-bg-tag-primary;
+  border-color: $color-primary;
+}
+
+.roleTabText {
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  color: $color-text-secondary;
+}
+
+.roleTabActive .roleTabText {
+  color: $color-primary;
+  font-weight: $font-weight-semibold;
+}
+
+.userList {
+  flex: 1;
+  padding: $spacing-md $spacing-lg;
+  max-height: 50vh;
+}
+
+.userItem {
+  display: flex;
+  align-items: center;
+  padding: $spacing-md;
+  margin-bottom: $spacing-sm;
+  background: $color-bg-card;
+  border-radius: $radius-md;
+  border: 2rpx solid $color-border;
+  transition: $transition-fast;
+}
+
+.userItem:active {
+  background: $color-bg-hover;
+  transform: scale(0.98);
+}
+
+.avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: $radius-round;
+  background: $color-bg-hover;
+  flex-shrink: 0;
+}
+
+.userInfo {
+  flex: 1;
+  margin-left: $spacing-md;
+  overflow: hidden;
+}
+
+.userName {
+  display: block;
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  margin-bottom: 4rpx;
+}
+
+.userPhone {
+  display: block;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  margin-bottom: 4rpx;
+}
+
+.userExtra {
+  display: block;
+  font-size: $font-size-xs;
+  color: $color-primary;
+}
+
+.arrow {
+  font-size: 48rpx;
+  color: $color-text-tertiary;
+  margin-left: $spacing-sm;
+}
+
+.footerTip {
+  padding: $spacing-md $spacing-lg $spacing-xl;
+  text-align: center;
+  border-top: 2rpx solid $color-divider;
+}
+
+.footerTipText {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  line-height: $line-height-normal;
+}
